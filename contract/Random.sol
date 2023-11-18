@@ -13,16 +13,9 @@ contract GachaGame is ItemTrading {
     }
 
     GachaItem[] public gachaItems;
-    uint public totalRate; // Total rate of all added items
     uint public totalPulls; // Total number of gacha pulls
     
-    address public owner;
-
     constructor() {
-        owner = msg.sender;
-        totalRate = 0;
-        totalPulls = 0;
-        
         // Predefined gacha items added in the constructor
         _addGachaItem("itemID1", "Sword of Destiny", 300000);
         _addGachaItem("itemID2", "Mystic Wand", 500000);
@@ -31,48 +24,52 @@ contract GachaGame is ItemTrading {
 
     function _addGachaItem(bytes32 _itemID, string memory _name, uint _rate) internal {
         gachaItems.push(GachaItem(_itemID, _name, _rate, 0));
-        totalRate += _rate;
     }
 
-    function random() internal view returns (uint) {
-        return uint(keccak256(abi.encodePacked(block.timestamp, block.difficulty, msg.sender))) % totalRate;
+    function random(uint maxRange) internal view returns (uint) {
+        return uint(keccak256(abi.encodePacked(block.timestamp, block.difficulty, msg.sender))) % maxRange;
     }
 
     function gachaPull() public {
         totalPulls++;
-        uint randomNumber = random();
-        uint cumulativeRate = 0;
-
-        // Check if any item's drop rate is significantly low
         bytes32 forcedItemID = checkForcedDrop();
         if (forcedItemID != bytes32(0)) {
             forceDropItem(forcedItemID);
             return;
         }
 
+        uint availableRate = calculateAvailableRate();
+        uint randomNumber = random(availableRate);
+        uint cumulativeRate = 0;
+
         for (uint i = 0; i < gachaItems.length; i++) {
-            cumulativeRate += gachaItems[i].rate;
-            if (randomNumber < cumulativeRate) {
-                dropItem(i);
-                break;
+            if (!isDropRateTooHigh(gachaItems[i])) {
+                cumulativeRate += gachaItems[i].rate;
+                if (randomNumber < cumulativeRate) {
+                    dropItem(i);
+                    break;
+                }
             }
         }
     }
 
     function checkForcedDrop() internal view returns (bytes32) {
         for (uint i = 0; i < gachaItems.length; i++) {
-            GachaItem storage item = gachaItems[i];
-            if (isDropRateTooLow(item)) {
-                return item.itemID;
+            if (isDropRateTooLow(gachaItems[i])) {
+                return gachaItems[i].itemID;
             }
         }
         return bytes32(0);
     }
 
     function isDropRateTooLow(GachaItem storage item) internal view returns (bool) {
-        uint expectedDrops = (totalPulls * item.rate) / totalRate;
-        // Apply simple hypothesis test with a rejecting region of 5%
-        return item.actualDrops < (expectedDrops * 95 / 100);
+        uint expectedDrops = (totalPulls * item.rate) / 1000000;
+        return item.actualDrops < (expectedDrops * 95 / 100); // 5% less than expected
+    }
+
+    function isDropRateTooHigh(GachaItem storage item) internal view returns (bool) {
+        uint expectedDrops = (totalPulls * item.rate) / 1000000;
+        return item.actualDrops > (expectedDrops * 105 / 100); // 5% more than expected
     }
 
     function forceDropItem(bytes32 itemID) internal {
@@ -88,5 +85,15 @@ contract GachaGame is ItemTrading {
         GachaItem storage item = gachaItems[index];
         item.actualDrops++;
         addItem(item.itemID, item.name, item.rate);
+    }
+
+    function calculateAvailableRate() internal view returns (uint) {
+        uint availableRate = 0;
+        for (uint i = 0; i < gachaItems.length; i++) {
+            if (!isDropRateTooHigh(gachaItems[i])) {
+                availableRate += gachaItems[i].rate;
+            }
+        }
+        return availableRate;
     }
 }
