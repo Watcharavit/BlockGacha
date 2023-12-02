@@ -33,16 +33,14 @@ struct Account {
 
 interface IState {
     function getItem(bytes32 _itemID) external view returns (Item memory);
-    function setItem(address _companyAddress, bytes32 _itemID, string calldata _itemName, uint _itemRate) external;
+    // function setItem(address _companyAddress, bytes32 _itemID, string calldata _itemName, uint _itemRate) external;
     function getPackage(bytes32 _packageID) external view returns (Package memory);
     function getCompanyPackages(address _companyAddress) external view returns (bytes32[] memory);
-    function setPackage(address _companyAddress, bytes32 _packageID, string calldata _packageName, uint _price, bool _status) external;
+    // function setPackage(address _companyAddress, bytes32 _packageID, string calldata _packageName, uint _price, bool _status) external;
     function addItemToPackage(address _companyAddress, bytes32 _itemId, bytes32 _packageID) external;
     function removeItemFromPackage(address _companyAddress, bytes32 _itemID, bytes32 _packageID) external;
-    function getAccount(address _address) external view returns (Account memory);
-    function initAccount(address _address, Role _role) external;
-    function increaseAccountToken(address _address, uint256 _amount) external;
-    function decreaseAccountToken(address _address, uint256 _amount) external;
+    // function increaseAccountToken(address _address, uint256 _amount) external;
+    // function decreaseAccountToken(address _address, uint256 _amount) external;
     function addUserItem(address _userAddress, bytes32 _itemID) external;
     function redeemUserItem(address _userAddress, bytes32 _itemID) external;
 }
