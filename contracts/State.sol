@@ -304,14 +304,34 @@ contract State is Ownable {
         return uint(keccak256(abi.encodePacked(block.timestamp, block.difficulty, msg.sender))) % maxRange;
     }
     
+    function calculateAvailableRate(bytes32 _packageID) internal view returns (uint) {
+        Package memory package = getPackage(_packageID);
+        bytes32[] memory itemIDs = package.itemIDs;
+        uint availableRate = 0;
+        for (uint i = 0; i < itemIDs.length; i++) {
+            availableRate += getItem(itemIDs[i]).itemRate;
+        }
+        return availableRate;
+    }
+    
     // Gacha pull function
     function pullGacha(address _companyAddress, bytes32 _packageID, address _userAddress) public onlyOwner(){
         // get package
         Package memory package = getPackage(_packageID);
         require(package.status,"This package is out of service");
+        bytes32[] memory itemIDs = package.itemIDs;
         // random item
-        uint randomNumber = random(package.itemIDs.length);
-        bytes32 droppedItemId = package.itemIDs[randomNumber];
+        uint availableRate = calculateAvailableRate(_packageID);
+        uint randomNumber = random(availableRate);
+        uint cumulativeRate = 0;
+        bytes32 droppedItemId;
+        for (uint i = 0; i < itemIDs.length; i++) {
+            cumulativeRate += getItem(itemIDs[i]).itemRate;
+            if (randomNumber < cumulativeRate) {
+                droppedItemId = itemIDs[i];
+                break;
+            }
+        }
         // remove item from package then send to user
         removeItemFromPackage(_companyAddress, droppedItemId, _packageID);
         addUserItem(_userAddress, droppedItemId);
