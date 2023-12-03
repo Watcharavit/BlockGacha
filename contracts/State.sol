@@ -13,6 +13,7 @@ struct Package {
     bytes32 packageID;
     string packageName;
     bytes32[] itemIDs;
+    uint sumRate;
     uint price;
     bool status; // true = available to random, false = out of service
     address owner; // company address
@@ -149,6 +150,7 @@ contract State is Ownable {
             packageID: _packageID,
             packageName: _packageName,
             itemIDs: new bytes32[](0),
+            sumRate: 0,
             price: _price,
             status: _status,
             owner: _companyAddress
@@ -166,6 +168,7 @@ contract State is Ownable {
 
     function addItemToPackage(address _companyAddress, bytes32 _itemID, bytes32 _packageID) public onlyOwner isPackageOwner(_companyAddress, _packageID) isItemOwner(_companyAddress, _itemID){
         packages[_packageID].itemIDs.push(_itemID);
+        packages[_packageID].sumRate += items[_itemID].itemRate;
         emit ItemAddedToPackage(_packageID, _itemID);
     }
 
@@ -304,25 +307,14 @@ contract State is Ownable {
         return uint(keccak256(abi.encodePacked(block.timestamp, block.difficulty, msg.sender))) % maxRange;
     }
     
-    function calculateAvailableRate(bytes32 _packageID) internal view returns (uint) {
-        Package memory package = getPackage(_packageID);
-        bytes32[] memory itemIDs = package.itemIDs;
-        uint availableRate = 0;
-        for (uint i = 0; i < itemIDs.length; i++) {
-            availableRate += getItem(itemIDs[i]).itemRate;
-        }
-        return availableRate;
-    }
-    
     // Gacha pull function
-    function pullGacha(address _companyAddress, bytes32 _packageID, address _userAddress) public onlyOwner(){
+    function pullGacha(bytes32 _packageID, address _userAddress) public onlyOwner(){
         // get package
         Package memory package = getPackage(_packageID);
         require(package.status,"This package is out of service");
         bytes32[] memory itemIDs = package.itemIDs;
         // random item
-        uint availableRate = calculateAvailableRate(_packageID);
-        uint randomNumber = random(availableRate);
+        uint randomNumber = random(package.sumRate);
         uint cumulativeRate = 0;
         bytes32 droppedItemId;
         for (uint i = 0; i < itemIDs.length; i++) {
@@ -332,8 +324,6 @@ contract State is Ownable {
                 break;
             }
         }
-        // remove item from package then send to user
-        removeItemFromPackage(_companyAddress, droppedItemId, _packageID);
         addUserItem(_userAddress, droppedItemId);
         emit PullGachaSuccessful(_packageID, droppedItemId, _userAddress);
     }
