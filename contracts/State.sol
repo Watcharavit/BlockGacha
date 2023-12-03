@@ -81,6 +81,7 @@ contract State is Ownable {
     event UserItemRedeemed(address indexed userAddress, bytes32 itemID);
     event AccountTokenUpdated(address indexed accountAddress, uint256 newBalance);
     event TradeSuccessful(address indexed proposeBy, address indexed requestTo, bytes32 proposeItemID, bytes32 requestItemID);
+    event PullGachaSuccessful(bytes32 indexed _packageID, bytes32 droppedItemId, address indexed _userAddress);
 
     // Getter for Item by itemID
     function getItem(bytes32 _itemID) public view returns (Item memory) {
@@ -297,4 +298,25 @@ contract State is Ownable {
         addUserItem(trade.requestTo, trade.proposeItemID);
         emit TradeSuccessful(trade.proposeBy, trade.requestTo, trade.proposeItemID, trade.requestItemID);
     }
+    
+    // Simple random number generator
+    function random(uint maxRange) internal view returns (uint) {
+        return uint(keccak256(abi.encodePacked(block.timestamp, block.difficulty, msg.sender))) % maxRange;
+    }
+    
+    // Gacha pull function
+    function pullGacha(address _companyAddress, bytes32 _packageID, address _userAddress) public onlyOwner(){
+        // get package
+        Package memory package = getPackage(_packageID);
+        require(package.status,"This package is out of service");
+        // random item
+        uint randomNumber = random(package.itemIDs.length);
+        bytes32 droppedItemId = package.itemIDs[randomNumber];
+        // remove item from package then send to user
+        removeItemFromPackage(_companyAddress, droppedItemId, _packageID);
+        addUserItem(_userAddress, droppedItemId);
+        emit PullGachaSuccessful(_packageID, droppedItemId, _userAddress);
+    }
+
+    
 }
