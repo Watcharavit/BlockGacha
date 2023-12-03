@@ -2,6 +2,8 @@ const express = require("express");
 const dotenv = require("dotenv");
 const connectDB = require("./config/db");
 const auth = require("./routes/auth");
+const state = require("./routes/state");
+const trade = require("./routes/trade");
 const cookieParser = require("cookie-parser");
 const mongoSanitize = require("express-mongo-sanitize");
 const helmet = require("helmet");
@@ -31,8 +33,10 @@ const limiter = rateLimit({
 app.use(limiter);
 app.use(hpp());
 app.use(cookieParser());
-// app.use("/api/v1/hospitals", hospitals);
-app.use("/api/v1/auth", auth);
+
+app.use("/auth", auth);
+app.use("/state", state);
+app.use("/trade", trade);
 
 const PORT = process.env.PORT || 5001;
 const server = app.listen(PORT, console.log("Server running in", process.env.NODE_ENV, "on http://localhost:" + PORT));
