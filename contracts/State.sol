@@ -87,26 +87,22 @@ contract State is Ownable {
         return items[_itemID];
     }
 
-    // Create & Update for Item 
-    function setItem(address _companyAddress, bytes32 _itemID, string memory _itemName, uint _itemRate) public onlyOwner isCompany(_companyAddress){
+    function createItem(address _companyAddress, bytes32 _itemID, string memory _itemName, uint _itemRate) public onlyOwner isCompany(_companyAddress){
         // Check if the item already exists
-        if (items[_itemID].owner != address(0)) {
-            // Item exists, check if the account is the owner
-            require(items[_itemID].owner == _companyAddress, "Company does not own this item");
-            // Update the item
-            items[_itemID].itemName = _itemName;
-            items[_itemID].itemRate = _itemRate;
-            emit ItemUpdated(_itemID, _itemName, _itemRate);
-        } else { 
-            // Item does not exist, create a new one
-            items[_itemID] = Item({
-                itemID: _itemID,
-                itemName: _itemName, 
-                itemRate: _itemRate,
-                owner: _companyAddress
-            });
-            emit ItemCreated(_itemID, _itemName, _itemRate, _companyAddress);
-        }
+        require(items[_itemID].owner == address(0), "ItemID has been used");
+        items[_itemID] = Item({
+            itemID: _itemID,
+            itemName: _itemName, 
+            itemRate: _itemRate,
+            owner: _companyAddress
+        });
+        emit ItemCreated(_itemID, _itemName, _itemRate, _companyAddress);
+    }
+
+    function updateItem(address _companyAddress, bytes32 _itemID, string memory _itemName, uint _itemRate) public onlyOwner isItemOwner(_companyAddress,_itemID){
+        items[_itemID].itemName = _itemName;
+        items[_itemID].itemRate = _itemRate;
+        emit ItemUpdated(_itemID, _itemName, _itemRate);
     }
 
     // Get Package by packageID
@@ -144,30 +140,27 @@ contract State is Ownable {
         return accounts[_companyAddress].packageIDs;
     }
 
-    // Create & Update for Package 
-    function setPackage(address _companyAddress, bytes32 _packageID, string memory _packageName, uint _price, bool _status) public onlyOwner isCompany(_companyAddress){
+    function createPackage(address _companyAddress, bytes32 _packageID, string memory _packageName, uint _price, bool _status) public onlyOwner isCompany(_companyAddress){
         // Check if the package already exists
-        if (packages[_packageID].owner != address(0)) {
-            // Package exists, check if the account is the owner
-            require(packages[_packageID].owner == _companyAddress, "Company does not own this package");
-            // Update the package
-            packages[_packageID].packageName = _packageName;
-            packages[_packageID].price = _price;
-            packages[_packageID].status = _status;
-            emit PackageUpdated(_packageID, _packageName, _price, _status);
-        } else {
-            // Package does not exist, create a new one
-            packages[_packageID] = Package({
-                packageID: _packageID,
-                packageName: _packageName,
-                itemIDs: new bytes32[](0),
-                price: _price,
-                status: _status,
-                owner: _companyAddress
-            });
-            accounts[_companyAddress].packageIDs.push(_packageID);
-            emit PackageCreated(_packageID, _packageName, _price, _status, _companyAddress);
-        }
+        require(packages[_packageID].owner == address(0), "PackageID has been used");
+        // Package does not exist, create a new one
+        packages[_packageID] = Package({
+            packageID: _packageID,
+            packageName: _packageName,
+            itemIDs: new bytes32[](0),
+            price: _price,
+            status: _status,
+            owner: _companyAddress
+        });
+        accounts[_companyAddress].packageIDs.push(_packageID);
+        emit PackageCreated(_packageID, _packageName, _price, _status, _companyAddress);
+    }
+
+    function updatePackage(address _companyAddress, bytes32 _packageID, string memory _packageName, uint _price, bool _status) public onlyOwner isPackageOwner(_companyAddress, _packageID){
+        packages[_packageID].packageName = _packageName;
+        packages[_packageID].price = _price;
+        packages[_packageID].status = _status;
+        emit PackageUpdated(_packageID, _packageName, _price, _status);
     }
 
     function addItemToPackage(address _companyAddress, bytes32 _itemID, bytes32 _packageID) public onlyOwner isPackageOwner(_companyAddress, _packageID) isItemOwner(_companyAddress, _itemID){
