@@ -8,7 +8,9 @@ if (!process.env.PRIVATE_KEY || !process.env.API_URL || !process.env.CONTRACT_AD
 
 const provider = new ethers.providers.JsonRpcProvider(process.env.API_URL);
 const signer = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
-const { abi } = require("../../artifacts/contracts/State.sol/State.json");
-const contractInstance = new ethers.Contract(process.env.CONTRACT_ADDRESS, abi, signer);
+const { abi: stateAbi } = require("../../artifacts/contracts/State.sol/State.json");
+const contractStateInstance = new ethers.Contract(process.env.CONTRACT_ADDRESS, stateAbi, signer);
+// const { abi: itemTradingAbi } = require("../../artifacts/contracts/ItemTrading.sol/ItemTrading.json");
+// const contractItemTradingInstance = new ethers.Contract(process.env.ITEM_TRADING_CONTRACT_ADDRESS, itemTradingAbi, signer);
 
-module.exports = contractInstance;
+module.exports = { contractStateInstance /*contractItemTradingInstance*/ };
