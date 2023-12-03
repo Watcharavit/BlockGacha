@@ -23,10 +23,20 @@ enum Role { User, Company, Admin }
 struct Account {
     // address account;
     Role role;
-    bytes32[] unredeemedItems;
-    bytes32[] redeemedItems;
+    bytes32[] unredeemedItemIDs;
+    bytes32[] redeemedItemIDs;
+    bytes32[] proposeTradeIDs;
+    bytes32[] requestedTradeIDs;
     bytes32[] packageIDs; // own package if role is company, otherwise empty
     uint256 tokenBalance;
+}
+
+struct Trade {
+    bytes32 proposeItemID; // requestor offer 
+    bytes32 requestItemID;
+    address requestTo;
+    address proposeBy; // key of tradeOffers
+    bool isApprovedByRequestee;
 }
 
 contract State is Ownable {
@@ -34,6 +44,7 @@ contract State is Ownable {
     mapping(bytes32 => Item) public items;
     mapping(bytes32 => Package) public packages;
     mapping(address => Account) public accounts;
+    mapping(bytes32 => Trade) public trades;
 
     modifier isCompany(address _companyAddress) {
         require(accounts[_companyAddress].role == Role.Company, "This account is not company");
@@ -56,7 +67,6 @@ contract State is Ownable {
     }
     
     constructor(){
-
     }
 
     event ItemCreated(bytes32 indexed itemID, string itemName, uint itemRate, address owner);
@@ -67,8 +77,10 @@ contract State is Ownable {
     event ItemRemovedFromPackage(bytes32 indexed packageID, bytes32 indexed itemID);
     event AccountCreated(address accountAddress, Role role, uint256 tokenBalance);
     event UserItemAdded(address indexed userAddress, bytes32 itemID);
+    event UserItemRemoved(address indexed userAddress, bytes32 itemID);
     event UserItemRedeemed(address indexed userAddress, bytes32 itemID);
     event AccountTokenUpdated(address indexed accountAddress, uint256 newBalance);
+    event TradeSuccessful(address indexed proposeBy, address indexed requestTo, bytes32 proposeItemID, bytes32 requestItemID);
 
     // Getter for Item by itemID
     function getItem(bytes32 _itemID) public view returns (Item memory) {
@@ -163,6 +175,8 @@ contract State is Ownable {
         emit ItemAddedToPackage(_packageID, _itemID);
     }
 
+    // Using loop since in practical, each package would not have too large item list. Assuming 10-15 is the most possible number. 
+    // Using storage to save the index would be less efficient.
     function removeItemFromPackage(address _companyAddress, bytes32 _itemID, bytes32 _packageID) public onlyOwner isPackageOwner(_companyAddress, _packageID) isItemOwner(_companyAddress, _itemID){       
         uint length = packages[_packageID].itemIDs.length;
         for (uint i = 0; i < length; i++) {
@@ -180,7 +194,7 @@ contract State is Ownable {
         return accounts[_address];
     }
 
-//get all Item of one user
+    //get all Item of one user  
 /*
     function getAllUserItems(address _userAddress) public isUser(_userAddress){
         uint length = accounts[_userAddress].userItems.length;
@@ -193,11 +207,13 @@ contract State is Ownable {
     }
 */
 
-    function initAccount(address _address, Role _role) public onlyOwner(){
+    function registerAccount(address _address, Role _role) public onlyOwner(){
         accounts[_address] = Account({
             role : _role, // 0 = User, 1 = Company, 2 = Admin
-            unredeemedItems: new bytes32[](0),
-            redeemedItems: new bytes32[](0),
+            unredeemedItemIDs: new bytes32[](0),
+            redeemedItemIDs: new bytes32[](0),
+            proposeTradeIDs: new bytes32[](0),
+            requestedTradeIDs: new bytes32[](0),
             packageIDs: new bytes32[](0),
             tokenBalance: 0
         });
@@ -215,21 +231,77 @@ contract State is Ownable {
     }
 
     function addUserItem(address _userAddress, bytes32 _itemID) public onlyOwner{
-        accounts[_userAddress].unredeemedItems.push(_itemID);
+        accounts[_userAddress].unredeemedItemIDs.push(_itemID);
         emit UserItemAdded(_userAddress, _itemID);
     }
 
-    function redeemUserItem(address _userAddress, bytes32 _itemID) public onlyOwner{
-        uint length = accounts[_userAddress].unredeemedItems.length;
+    function removeUserItem(address _userAddress, bytes32 _itemID) public onlyOwner{
+        uint length = accounts[_userAddress].unredeemedItemIDs.length;
         for (uint i = 0; i < length; i++) {
-            if(_itemID == accounts[_userAddress].unredeemedItems[i]){
-                accounts[_userAddress].redeemedItems.push(accounts[_userAddress].unredeemedItems[i]);
-                accounts[_userAddress].unredeemedItems[i] = accounts[_userAddress].unredeemedItems[length-1];
-                accounts[_userAddress].unredeemedItems.pop();
+            if(_itemID == accounts[_userAddress].unredeemedItemIDs[i]){
+                accounts[_userAddress].unredeemedItemIDs[i] = accounts[_userAddress].unredeemedItemIDs[length-1];
+                accounts[_userAddress].unredeemedItemIDs.pop();
+                break;
+            }
+        emit UserItemRemoved(_userAddress, _itemID);
+        }
+    }
+
+    function redeemUserItem(address _userAddress, bytes32 _itemID) public onlyOwner{
+        uint length = accounts[_userAddress].unredeemedItemIDs.length;
+        for (uint i = 0; i < length; i++) {
+            if(_itemID == accounts[_userAddress].unredeemedItemIDs[i]){
+                accounts[_userAddress].redeemedItemIDs.push(accounts[_userAddress].unredeemedItemIDs[i]);
+                accounts[_userAddress].unredeemedItemIDs[i] = accounts[_userAddress].unredeemedItemIDs[length-1];
+                accounts[_userAddress].unredeemedItemIDs.pop();
                 break;
             }
         }
         emit UserItemRedeemed(_userAddress, _itemID);
     }
     
+    function isTradable(address _userAddress, bytes32 _itemID) public view returns(bool){
+        uint length = accounts[_userAddress].unredeemedItemIDs.length;
+        for (uint i = 0; i < length; i++) {
+            if(_itemID == accounts[_userAddress].unredeemedItemIDs[i]){
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function getTrade(bytes32 _tradeID) public view returns (Trade memory) {
+        return trades[_tradeID];
+    }
+
+    // Function to propose a trade
+    function proposeTrade(bytes32 _tradeID, address _proposerAddress, address _requestTo, bytes32 _proposeItemID, bytes32 _requestItemID) public onlyOwner(){
+        require(isTradable(_proposerAddress, _proposeItemID), "Proposer does not own the propose item");
+        require(isTradable(_requestTo, _requestItemID), "Requestee does not own the propose item");
+        trades[_tradeID] = Trade({
+            proposeItemID: _proposeItemID, 
+            requestItemID: _requestItemID, 
+            requestTo: _requestTo, 
+            proposeBy: _proposerAddress, 
+            isApprovedByRequestee: false});
+        accounts[_proposerAddress].proposeTradeIDs.push(_tradeID);
+        accounts[_requestTo].requestedTradeIDs.push(_tradeID);
+    }
+
+    // Function to accept a propose trade
+    function acceptPropose(address _userAddress, bytes32 _tradeID) public onlyOwner(){
+        Trade memory trade = trades[_tradeID];
+        require(trade.requestTo == _userAddress, "This trade is not requested to you.");
+        require(trade.isApprovedByRequestee == false, "This trade is completed.");
+        require(isTradable(trade.proposeBy, trade.proposeItemID), "Proposer does not own the propose item");
+        require(isTradable(trade.requestTo, trade.requestItemID), "Requestee does not own the request item");
+        // Approve the trade
+        trades[_tradeID].isApprovedByRequestee = true;
+        // Execute trade
+        removeUserItem(trade.proposeBy, trade.proposeItemID);
+        removeUserItem(trade.requestTo, trade.requestItemID);
+        addUserItem(trade.proposeBy, trade.requestItemID);
+        addUserItem(trade.requestTo, trade.proposeItemID);
+        emit TradeSuccessful(trade.proposeBy, trade.requestTo, trade.proposeItemID, trade.requestItemID);
+    }
 }
