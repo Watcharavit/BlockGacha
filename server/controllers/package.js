@@ -4,12 +4,13 @@ const Item = require("../models/Item");
 const Package = require("../models/Package");
 
 // Common function to handle contract calls and transactions
-async function handleContractCall(callPromise) {
+async function handleContractCall(call) {
 	try {
-		const result = await callPromise;
+		const tx = await call;
+		const result = await tx.wait();
 		return { success: true, data: result };
 	} catch (error) {
-		console.error("Contract call error:", error);
+		console.error("Contract call error:", error.message);
 		return { success: false, error: error.message };
 	}
 }
@@ -46,8 +47,7 @@ exports.createItem = async (req, res) => {
 		return res.status(400).send("Invalid input data");
 	}
 	const itemID = await incrementCounter("itemIDCounter");
-	const tx = await contractInstance.createItem(req.user.walletAddress, itemID, itemName, itemRate);
-	const result = await handleContractCall(tx.wait());
+	const result = await handleContractCall(contractInstance.createItem(req.user.walletAddress, itemID, itemName, itemRate));
 	if (result.success) {
 		const item = await Item.create({ _id: itemID, picture: itemPicture });
 		res.status(201).json({ success: true, itemID: itemID });
@@ -67,8 +67,7 @@ exports.updateItem = async (req, res) => {
 	if (!itemName || !itemRate) {
 		return res.status(400).send("Invalid input data");
 	}
-	const tx = await contractInstance.updateItem(req.user.walletAddress, itemID, itemName, itemRate);
-	const result = await handleContractCall(tx.wait());
+	const result = await handleContractCall(contractInstance.updateItem(req.user.walletAddress, itemID, itemName, itemRate));
 	let item;
 	if (itemPicture) {
 		item = await Item.findByIdAndUpdate(
@@ -120,8 +119,7 @@ exports.createPackage = async (req, res) => {
 		return res.status(400).send("Invalid input data");
 	}
 	const packageID = await incrementCounter("packageIDCounter");
-	const tx = await contractInstance.createPackage(req.user.walletAddress, packageID, packageName, price, status);
-	const result = await handleContractCall(tx.wait());
+	const result = await handleContractCall(contractInstance.createPackage(req.user.walletAddress, packageID, packageName, price, status));
 	const package = await Package.create({ _id: packageID, picture: packagePicture });
 	if (result.success && package) {
 		res.status(201).json({ success: true });
@@ -141,8 +139,7 @@ exports.updatePackage = async (req, res) => {
 	if (!packageName || !price || typeof status !== "boolean") {
 		return res.status(400).send("Invalid input data");
 	}
-	const tx = await contractInstance.updatePackage(req.user.walletAddress, packageID, packageName, price, status);
-	const result = await handleContractCall(tx.wait());
+	const result = await handleContractCall(contractInstance.updatePackage(req.user.walletAddress, packageID, packageName, price, status));
 	let package;
 	if (packagePicture) {
 		package = await Package.findByIdAndUpdate(
@@ -171,8 +168,8 @@ exports.addItemToPackage = async (req, res) => {
 	if (!itemID) {
 		return res.status(400).send("Invalid input data");
 	}
-	const tx = await contractInstance.addItemToPackage(req.user.walletAddress, itemID, packageID);
-	const result = await handleContractCall(tx.wait());
+	// const tx = await contractInstance.addItemToPackage(req.user.walletAddress, itemID, packageID);
+	const result = await handleContractCall(contractInstance.addItemToPackage(req.user.walletAddress, itemID, packageID));
 	if (result.success) {
 		res.status(201).json({ success: true });
 	} else {
@@ -190,8 +187,7 @@ exports.removeItemFromPackage = async (req, res) => {
 	if (!itemID) {
 		return res.status(400).send("Invalid input data");
 	}
-	const tx = await contractInstance.removeItemFromPackage(req.user.walletAddress, itemID, packageID);
-	const result = await handleContractCall(tx.wait());
+	const result = await handleContractCall(contractInstance.removeItemFromPackage(req.user.walletAddress, itemID, packageID));
 	if (result.success) {
 		res.status(201).json({ success: true });
 	} else {
@@ -204,8 +200,7 @@ exports.removeItemFromPackage = async (req, res) => {
 //@access
 exports.pullGacha = async (req, res) => {
 	const packageID = req.params;
-	const tx = await contractInstance.pullGacha(packageID, req.user.walletAddress);
-	const result = await handleContractCall(tx.wait());
+	const result = await handleContractCall(contractInstance.pullGacha(packageID, req.user.walletAddress));
 	if (result.success) {
 		res.status(201).json("Gacha pull successful");
 	} else {
