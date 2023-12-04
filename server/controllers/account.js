@@ -1,15 +1,32 @@
 const { contractInstance } = require("../config/contractInstance");
+const User = require("../models/User");
 
 // Common function to handle contract calls and transactions
-async function handleContractCall(callPromise) {
+async function handleContractCall(call) {
 	try {
-		const result = await callPromise;
+		const tx = await call;
+		if (typeof tx !== "function") {
+			return { success: true, data: tx };
+		}
+		const result = await tx.wait();
 		return { success: true, data: result };
 	} catch (error) {
-		console.error("Contract call error:", error);
+		console.error("Contract call error:", error.message);
 		return { success: false, error: error.message };
 	}
 }
+
+//@desc     Get All Company
+//@route    GET /account/allCompanys
+//@access	Public
+exports.getAllCompany = async (req, res) => {
+	try {
+		const companyUsers = await User.find({ role: "company" });
+		res.status(200).json(companyUsers);
+	} catch (error) {
+		res.status(500);
+	}
+};
 
 //@desc     Get All Package of Company requestor
 //@route    GET /account/company
@@ -54,13 +71,12 @@ exports.updateTokenBalance = async (req, res) => {
 	if (typeof amount !== "number") {
 		return res.status(400).send("Invalid amount provided");
 	}
-	let balancePromise;
+	let result;
 	if (amount > 0) {
-		balancePromise = contractInstance.increaseAccountToken(req.user.walletAddress, amount);
+		result = await handleContractCall(contractInstance.increaseAccountToken(req.user.walletAddress, amount));
 	} else {
-		balancePromise = contractInstance.decreaseAccountToken(req.user.walletAddress, -amount);
+		result = await handleContractCall(contractInstance.decreaseAccountToken(req.user.walletAddress, -amount));
 	}
-	const result = await handleContractCall(balancePromise);
 	if (result.success) {
 		res.json({ success: true });
 	} else {
@@ -77,8 +93,7 @@ exports.redeemUserItem = async (req, res) => {
 	if (!itemID) {
 		return res.status(400).send("Item ID is required");
 	}
-	const tx = await contractInstance.redeemUserItem(req.user.walletAddress, itemID);
-	const result = await handleContractCall(tx.wait());
+	const result = await handleContractCall(contractInstance.redeemUserItem(req.user.walletAddress, itemID));
 	if (result.success) {
 		res.status(201).json({ success: true });
 	} else {
