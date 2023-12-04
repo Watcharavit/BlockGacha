@@ -1,13 +1,22 @@
 const User = require("../models/User");
+const { contractInstance } = require("../config/contractInstance");
 
 //@desc     Register user
 //@route    POST /auth/register
 //@access   Public
 exports.register = async (req, res, next) => {
 	try {
-		const { name, email, password, role } = req.body;
+		const { name, walletAddress, email, password, role } = req.body;
+		if (role == "user") {
+			const tx = await contractInstance.registerAccount(walletAddress, 0);
+			await tx.wait();
+		} else if (role == "company") {
+			const tx = await contractInstance.registerAccount(walletAddress, 1);
+			await tx.wait();
+		}
 		const user = await User.create({
 			name,
+			walletAddress,
 			email,
 			password,
 			role

@@ -2,7 +2,7 @@ const express = require("express");
 const dotenv = require("dotenv");
 const connectDB = require("./config/db");
 const auth = require("./routes/auth");
-const state = require("./routes/state");
+const package = require("./routes/package");
 const trade = require("./routes/trade");
 const cookieParser = require("cookie-parser");
 const mongoSanitize = require("express-mongo-sanitize");
@@ -35,7 +35,7 @@ app.use(hpp());
 app.use(cookieParser());
 
 app.use("/auth", auth);
-app.use("/state", state);
+app.use("/package", package);
 app.use("/trade", trade);
 
 const PORT = process.env.PORT || 5001;

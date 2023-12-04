@@ -217,22 +217,24 @@ contract State is Ownable {
         emit AccountCreated( _address, accounts[_address].role, accounts[_address].tokenBalance);
     }
 
-    function increaseAccountToken(address _address, uint256 _amount) public onlyOwner(){
+    function increaseAccountToken(address _address, uint256 _amount) public onlyOwner() returns(uint256){
         accounts[_address].tokenBalance += _amount;
         emit AccountTokenUpdated(_address, accounts[_address].tokenBalance);
+        return accounts[_address].tokenBalance;
     }
 
-    function decreaseAccountToken(address _address, uint256 _amount) public onlyOwner(){
+    function decreaseAccountToken(address _address, uint256 _amount) public onlyOwner() returns(uint256){
         accounts[_address].tokenBalance -= _amount;
         emit AccountTokenUpdated(_address, accounts[_address].tokenBalance);
+        return accounts[_address].tokenBalance;
     }
 
-    function addUserItem(address _userAddress, bytes32 _itemID) public onlyOwner{
+    function addUserItem(address _userAddress, bytes32 _itemID) internal onlyOwner{
         accounts[_userAddress].unredeemedItemIDs.push(_itemID);
         emit UserItemAdded(_userAddress, _itemID);
     }
 
-    function removeUserItem(address _userAddress, bytes32 _itemID) public onlyOwner{
+    function removeUserItem(address _userAddress, bytes32 _itemID) internal onlyOwner{
         uint length = accounts[_userAddress].unredeemedItemIDs.length;
         for (uint i = 0; i < length; i++) {
             if(_itemID == accounts[_userAddress].unredeemedItemIDs[i]){
@@ -257,7 +259,7 @@ contract State is Ownable {
         emit UserItemRedeemed(_userAddress, _itemID);
     }
     
-    function isTradable(address _userAddress, bytes32 _itemID) public view returns(bool){
+    function isTradable(address _userAddress, bytes32 _itemID) internal view returns(bool){
         uint length = accounts[_userAddress].unredeemedItemIDs.length;
         for (uint i = 0; i < length; i++) {
             if(_itemID == accounts[_userAddress].unredeemedItemIDs[i]){
@@ -327,6 +329,4 @@ contract State is Ownable {
         addUserItem(_userAddress, droppedItemId);
         emit PullGachaSuccessful(_packageID, droppedItemId, _userAddress);
     }
-
-    
 }
