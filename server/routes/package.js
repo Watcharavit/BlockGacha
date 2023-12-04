@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const { getItem, createItem, updateItem, getPackage, createPackage, updatePackage, addItemToPackage, removeItemFromPackage } = require("../controllers/package");
+const { getItem, createItem, updateItem, getPackage, createPackage, updatePackage, addItemToPackage, removeItemFromPackage, pullGacha } = require("../controllers/package");
 const { protect, authorize } = require("../middleware/auth");
 
 // Item routes
@@ -13,5 +13,6 @@ router.route("/packages/:packageID").get(getPackage).put(protect, authorize("com
 
 // Others
 router.route("/packages/:packageID/items/:itemID").post(protect, authorize("company"), addItemToPackage).delete(protect, authorize("company"), removeItemFromPackage);
+router.route("/packages/random/:packageID").post(protect, pullGacha);
 
 module.exports = router;

@@ -48,9 +48,9 @@ exports.createItem = async (req, res) => {
 	const itemID = await incrementCounter("itemIDCounter");
 	const tx = await contractInstance.createItem(req.user.walletAddress, itemID, itemName, itemRate);
 	const result = await handleContractCall(tx.wait());
-	const item = await Item.create({ _id: itemID, picture: itemPicture });
-	if (result.success && item) {
-		res.status(201).json({ success: true });
+	if (result.success) {
+		const item = await Item.create({ _id: itemID, picture: itemPicture });
+		res.status(201).json({ success: true, itemID: itemID });
 	} else {
 		res.status(500).send(result.error);
 	}
@@ -194,6 +194,20 @@ exports.removeItemFromPackage = async (req, res) => {
 	const result = await handleContractCall(tx.wait());
 	if (result.success) {
 		res.status(201).json({ success: true });
+	} else {
+		res.status(500).send(result.error);
+	}
+};
+
+//@desc     Random to add itemID to user
+//@route    POST /package/random/:packageID
+//@access
+exports.pullGacha = async (req, res) => {
+	const packageID = req.params;
+	const tx = await contractInstance.pullGacha(packageID, req.user.walletAddress);
+	const result = await handleContractCall(tx.wait());
+	if (result.success) {
+		res.status(201).json("Gacha pull successful");
 	} else {
 		res.status(500).send(result.error);
 	}
