@@ -310,7 +310,7 @@ contract State is Ownable {
     }
     
     // Gacha pull function
-    function pullGacha(bytes32 _packageID, address _userAddress) public onlyOwner(){
+    function pullGacha(bytes32 _packageID, address _userAddress) public onlyOwner() returns(Item memory){
         // get package
         Package memory package = getPackage(_packageID);
         require(package.status,"This package is out of service");
@@ -328,5 +328,6 @@ contract State is Ownable {
         }
         addUserItem(_userAddress, droppedItemId);
         emit PullGachaSuccessful(_packageID, droppedItemId, _userAddress);
+        return items[droppedItemId];
     }
 }
