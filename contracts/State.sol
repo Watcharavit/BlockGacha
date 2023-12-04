@@ -310,12 +310,13 @@ contract State is Ownable {
     }
     
     // Gacha pull function
-    function pullGacha(bytes32 _packageID, address _userAddress) public onlyOwner() returns(bytes32){
+    function pullGacha(bytes32 _packageID, address _userAddress) public onlyOwner(){
         // get package
-        Package memory package = getPackage(_packageID);
+        Package memory package = packages[_packageID];
         require(package.status,"This package is out of service");
         require(package.price<= accounts[_userAddress].tokenBalance, "User does not have enough token");
         bytes32[] memory itemIDs = package.itemIDs;
+        require(itemIDs.length > 0 ,"This package has no item");
         // random item
         uint randomNumber = random(package.sumRate);
         uint cumulativeRate = 0;
@@ -331,6 +332,5 @@ contract State is Ownable {
         emit PullGachaSuccessful(_packageID, droppedItemId, _userAddress);
         accounts[_userAddress].tokenBalance -= package.price;
         accounts[package.owner].tokenBalance += package.price;
-        return droppedItemId;
     }
 }

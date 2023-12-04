@@ -205,8 +205,8 @@ exports.pullGacha = async (req, res) => {
 	const packageID = req.params.packageID;
 	const result = await handleContractCall(contractInstance.pullGacha(packageID, req.user.walletAddress));
 	if (result.success) {
-		const data = result.data;
-		res.status(201).json(result.data);
+		const transactionReceipt = result.data;
+		res.status(201).json(transactionReceipt);
 	} else {
 		res.status(500).send(result.error);
 	}
