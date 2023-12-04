@@ -7,6 +7,9 @@ const Package = require("../models/Package");
 async function handleContractCall(call) {
 	try {
 		const tx = await call;
+		if (typeof tx !== "function") {
+			return { success: true, data: tx };
+		}
 		const result = await tx.wait();
 		return { success: true, data: result };
 	} catch (error) {
