@@ -138,7 +138,7 @@ contract State is Ownable {
     }
     */
 
-    function getCompanyPackages(address _companyAddress) public isCompany(_companyAddress) view returns (bytes32[] memory) {
+    function getCompanyPackages(address _companyAddress) public view returns (bytes32[] memory) {
         return accounts[_companyAddress].packageIDs;
     }
 
