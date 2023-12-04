@@ -75,6 +75,7 @@ const sendTokenResponse = (user, statusCode, res) => {
 		success: true,
 		_id: user._id,
 		name: user.name,
+		walletAddress: user.walletAddress,
 		email: user.email,
 		token
 	});

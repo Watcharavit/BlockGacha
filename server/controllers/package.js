@@ -125,7 +125,7 @@ exports.createPackage = async (req, res) => {
 	const result = await handleContractCall(contractInstance.createPackage(req.user.walletAddress, packageID, packageName, price, status));
 	const package = await Package.create({ _id: packageID, picture: packagePicture });
 	if (result.success && package) {
-		res.status(201).json({ success: true });
+		res.status(201).json({ success: true, packageID: packageID });
 	} else {
 		res.status(500).send(result.error);
 	}
@@ -202,10 +202,11 @@ exports.removeItemFromPackage = async (req, res) => {
 //@route    POST /package/random/:packageID
 //@access
 exports.pullGacha = async (req, res) => {
-	const packageID = req.params;
+	const packageID = req.params.packageID;
 	const result = await handleContractCall(contractInstance.pullGacha(packageID, req.user.walletAddress));
 	if (result.success) {
-		res.status(201).json("Gacha pull successful");
+		const data = result.data;
+		res.status(201).json(result.data);
 	} else {
 		res.status(500).send(result.error);
 	}
