@@ -314,6 +314,7 @@ contract State is Ownable {
         // get package
         Package memory package = getPackage(_packageID);
         require(package.status,"This package is out of service");
+        require(package.price<= accounts[_userAddress].tokenBalance, "User does not have enough token");
         bytes32[] memory itemIDs = package.itemIDs;
         // random item
         uint randomNumber = random(package.sumRate);
@@ -328,6 +329,8 @@ contract State is Ownable {
         }
         addUserItem(_userAddress, droppedItemId);
         emit PullGachaSuccessful(_packageID, droppedItemId, _userAddress);
+        accounts[_userAddress].tokenBalance -= package.price;
+        accounts[package.owner].tokenBalance += package.price;
         return items[droppedItemId];
     }
 }
