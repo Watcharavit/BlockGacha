@@ -163,7 +163,7 @@ exports.updatePackage = async (req, res) => {
 
 //@desc     Add itemID to package
 //@route    POST /package/packages/:packageID/items/:itemID
-//@access
+//@access	Private
 exports.addItemToPackage = async (req, res) => {
 	const packageID = req.params.packageID;
 	const itemID = req.params.itemID;
@@ -181,11 +181,11 @@ exports.addItemToPackage = async (req, res) => {
 };
 
 //@desc     Remove itemID to package
-//@route    DELETE /package/packages/:packageID
-//@access
+//@route    DELETE /package/packages/:packageID/items/:itemID
+//@access	Privat
 exports.removeItemFromPackage = async (req, res) => {
 	const packageID = req.params.packageID;
-	const { itemID } = req.body;
+	const itemID = req.params.itemID;
 	// Validate input
 	if (!itemID) {
 		return res.status(400).send("Invalid input data");

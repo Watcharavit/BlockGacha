@@ -1,9 +1,10 @@
 const express = require("express");
-const {} = require("../controllers/trade");
+const { getTrade, acceptPropose, proposeTrade } = require("../controllers/trade");
 const router = express.Router();
-const { protect } = require("../middleware/auth");
+const { protect, authorize } = require("../middleware/auth");
 
-// router.get("/items/:id", getItem);
-// router.post("/items", setItem);
+router.route("/:tradeID").get(getTrade);
+router.route("/proposed").post(protect, proposeTrade);
+router.route("/accepted/:tradeID").put(protect, acceptPropose);
 
 module.exports = router;
