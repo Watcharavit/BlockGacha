@@ -26,7 +26,8 @@ exports.getItem = async (req, res) => {
 		res.json({
 			itemID: data[0],
 			itemName: data[1],
-			itemRate: data[3],
+			itemRate: data[2].toString(),
+			companyOwner: data[3],
 			...(item.picture && { itemPicture: item.picture })
 		});
 	} else {
@@ -99,6 +100,7 @@ exports.getPackage = async (req, res) => {
 			packageID: data[0],
 			packageName: data[1],
 			itemIDList: data[2],
+			price: data[4].toString(),
 			packageStatus: data[5],
 			...(package.picture && { packagePicture: package.picture })
 		});

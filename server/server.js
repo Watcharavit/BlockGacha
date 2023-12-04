@@ -4,6 +4,7 @@ const connectDB = require("./config/db");
 const auth = require("./routes/auth");
 const package = require("./routes/package");
 const trade = require("./routes/trade");
+const account = require("./routes/account");
 const cookieParser = require("cookie-parser");
 const mongoSanitize = require("express-mongo-sanitize");
 const helmet = require("helmet");
@@ -37,6 +38,7 @@ app.use(cookieParser());
 app.use("/auth", auth);
 app.use("/package", package);
 app.use("/trade", trade);
+app.use("/account", account);
 
 const PORT = process.env.PORT || 5001;
 const server = app.listen(PORT, console.log("Server running in", process.env.NODE_ENV, "on http://localhost:" + PORT));
