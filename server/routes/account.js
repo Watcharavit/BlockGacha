@@ -4,7 +4,7 @@ const { getAccount, getAllCompany, getCompanyPackages, redeemUserItem, updateTok
 const { protect, authorize } = require("../middleware/auth");
 
 router.route("/").get(protect, getAccount);
-router.route("/:companyID/packages").get(protect, getCompanyPackages);
+router.route("/:companyAddress/packages").get(protect, getCompanyPackages);
 router.route("/allCompany").get(protect, getAllCompany);
 router.route("/balance").put(protect, updateTokenBalance);
 router.route("/items/:itemID").put(protect, authorize("user"), redeemUserItem);
