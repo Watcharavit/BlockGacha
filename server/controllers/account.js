@@ -22,7 +22,7 @@ async function handleContractCall(call) {
 exports.getAllCompany = async (req, res) => {
 	try {
 		const companyUsers = await User.find({ role: "company" });
-		if (!item) {
+		if (!companyUsers) {
 			throw new Error("No company found in the database");
 		}
 
