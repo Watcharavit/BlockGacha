@@ -29,10 +29,11 @@ exports.getAllCompany = async (req, res) => {
 };
 
 //@desc     Get All Package of Company requestor
-//@route    GET /account/company
+//@route    GET /account/:companyID/packages
 //@access	Private
 exports.getCompanyPackages = async (req, res) => {
-	const result = await handleContractCall(contractInstance.getCompanyPackages(req.user.walletAddress));
+	const companyID = req.params.companyID;
+	const result = await handleContractCall(contractInstance.getCompanyPackages(companyID));
 	if (result.success) {
 		res.json(result.data);
 	} else {
