@@ -2,11 +2,12 @@ const { contractInstance } = require("../config/contractInstance");
 const { incrementCounter } = require("../config/counter/counter");
 const Item = require("../models/Item");
 const Package = require("../models/Package");
+const mongoose = require("mongoose");
 
 // Common function to handle contract calls and transactions
-async function handleContractCall(call) {
+async function handleContractCall(callFunction) {
 	try {
-		const tx = await call;
+		const tx = await callFunction;
 		if (typeof tx !== "function") {
 			return { success: true, data: tx };
 		}
@@ -18,15 +19,38 @@ async function handleContractCall(call) {
 	}
 }
 
+// Common function to handle contract calls and transactions
+async function handleDBCall(callFunction) {
+	try {
+		const result = await callFunction;
+		return { success: true, data: result };
+	} catch (error) {
+		console.error("MongoDB call error:", error.message);
+		return { success: false, error: error.message };
+	}
+}
+
 //@desc     Get Item by ID
 //@route    GET /package/items/:itemID
 //@access	Public
 exports.getItem = async (req, res) => {
 	const itemID = req.params.itemID;
-	const result = await handleContractCall(contractInstance.getItem(itemID));
-	const item = await Item.findById(itemID);
-	if (result.success && item) {
-		const data = result.data;
+
+	try {
+		// Fetch package details from the smart contract
+		const resultContract = await handleContractCall(contractInstance.getItem(itemID));
+		if (!resultContract.success) {
+			throw new Error(resultContract.error);
+		}
+
+		// Retrieve item data from MongoDB
+		const item = await Item.findById(itemID);
+		if (!item) {
+			throw new Error("Item not found in the database");
+		}
+
+		const data = resultContract.data;
+
 		res.json({
 			itemID: data[0],
 			itemName: data[1],
@@ -34,8 +58,8 @@ exports.getItem = async (req, res) => {
 			companyOwner: data[3],
 			...(item.picture && { itemPicture: item.picture })
 		});
-	} else {
-		res.status(500).send(result.error);
+	} catch (error) {
+		res.status(500).send(error.message);
 	}
 };
 
@@ -45,17 +69,37 @@ exports.getItem = async (req, res) => {
 //@body 	{ itemName, itemRate, itemPicture(optional) }
 exports.createItem = async (req, res) => {
 	const { itemName, itemRate, itemPicture } = req.body;
-	// Validate input
 	if (!itemName || !itemRate) {
 		return res.status(400).send("Invalid input data");
 	}
-	const itemID = await incrementCounter("itemIDCounter");
-	const result = await handleContractCall(contractInstance.createItem(req.user.walletAddress, itemID, itemName, itemRate));
-	if (result.success) {
-		const item = await Item.create({ _id: itemID, picture: itemPicture });
+
+	const session = await mongoose.startSession();
+	session.startTransaction();
+
+	try {
+		const itemID = await incrementCounter("itemIDCounter");
+
+		// First, make the change in MongoDB
+		const resultDB = await handleDBCall(Item.create([{ _id: itemID, picture: itemPicture }], { session: session }));
+		if (!resultDB.success) {
+			throw new Error(resultDB.error);
+		}
+
+		// Then, make the contract call
+		const resultContract = await handleContractCall(contractInstance.createItem(req.user.walletAddress, itemID, itemName, itemRate));
+		if (!resultContract.success) {
+			throw new Error(resultContract.error);
+		}
+
+		// If everything goes well, commit the transaction
+		await session.commitTransaction();
 		res.status(201).json({ success: true, itemID: itemID });
-	} else {
-		res.status(500).send(result.error);
+	} catch (error) {
+		// If there's an error, abort the transaction and roll back any changes
+		await session.abortTransaction();
+		res.status(500).send(error.message);
+	} finally {
+		session.endSession();
 	}
 };
 
@@ -66,26 +110,42 @@ exports.createItem = async (req, res) => {
 exports.updateItem = async (req, res) => {
 	const itemID = req.params.itemID;
 	const { itemName, itemRate, itemPicture } = req.body;
+
 	// Validate input
 	if (!itemName || !itemRate) {
 		return res.status(400).send("Invalid input data");
 	}
-	const result = await handleContractCall(contractInstance.updateItem(req.user.walletAddress, itemID, itemName, itemRate));
-	let item;
-	if (itemPicture) {
-		item = await Item.findByIdAndUpdate(
-			itemID,
-			{ picture: itemPicture },
-			{
-				new: true,
-				runValidators: true
-			}
-		);
-	}
-	if (result.success && item) {
+
+	const session = await mongoose.startSession();
+	session.startTransaction();
+
+	try {
+		let update = {};
+		if (itemPicture) {
+			update.picture = itemPicture;
+		}
+
+		// Update the item in MongoDB within the transaction
+		const resultDB = await handleDBCall(Item.findByIdAndUpdate(itemID, update, { new: true, runValidators: true, session }));
+		if (!resultDB.success) {
+			throw new Error(resultDB.error);
+		}
+
+		// Make the smart contract call
+		const resultContract = await handleContractCall(contractInstance.updateItem(req.user.walletAddress, itemID, itemName, itemRate));
+		if (!resultContract.success) {
+			throw new Error(resultContract.error);
+		}
+
+		// If contract call is successful, commit the transaction
+		await session.commitTransaction();
 		res.status(200).json({ success: true });
-	} else {
-		res.status(500).send(result.error);
+	} catch (error) {
+		// If there's an error, abort the transaction and roll back any changes
+		await session.abortTransaction();
+		res.status(500).send(error.message);
+	} finally {
+		session.endSession();
 	}
 };
 
@@ -94,10 +154,22 @@ exports.updateItem = async (req, res) => {
 //@access	Public
 exports.getPackage = async (req, res) => {
 	const packageID = req.params.packageID;
-	const result = await handleContractCall(contractInstance.getPackage(packageID));
-	const package = await Package.findById(packageID);
-	if (result.success && package) {
-		const data = result.data;
+
+	try {
+		// Fetch package details from the smart contract
+		const resultContract = await handleContractCall(contractInstance.getPackage(packageID));
+		if (!resultContract.success) {
+			throw new Error(resultContract.error);
+		}
+
+		// Retrieve package data from MongoDB
+		const package = await Package.findById(packageID);
+		if (!package) {
+			throw new Error("Package not found in the database");
+		}
+
+		const data = resultContract.data;
+
 		res.json({
 			packageID: data[0],
 			packageName: data[1],
@@ -106,8 +178,8 @@ exports.getPackage = async (req, res) => {
 			packageStatus: data[5],
 			...(package.picture && { packagePicture: package.picture })
 		});
-	} else {
-		res.status(500).send(result.error);
+	} catch (error) {
+		res.status(500).send(error.message);
 	}
 };
 
@@ -117,17 +189,39 @@ exports.getPackage = async (req, res) => {
 //@body 	{ packageName, price, status, packagePicture(optional) }
 exports.createPackage = async (req, res) => {
 	const { packageName, price, status, packagePicture } = req.body;
+
 	// Validate input
 	if (!packageName || !price || typeof status !== "boolean") {
 		return res.status(400).send("Invalid input data");
 	}
-	const packageID = await incrementCounter("packageIDCounter");
-	const result = await handleContractCall(contractInstance.createPackage(req.user.walletAddress, packageID, packageName, price, status));
-	const package = await Package.create({ _id: packageID, picture: packagePicture });
-	if (result.success && package) {
+
+	const session = await mongoose.startSession();
+	session.startTransaction();
+
+	try {
+		const packageID = await incrementCounter("packageIDCounter");
+
+		// First, create the package in MongoDB within the transaction
+		const resultDB = await handleDBCall(Package.create([{ _id: packageID, picture: packagePicture }], { session: session }));
+		if (!resultDB.success) {
+			throw new Error(resultDB.error);
+		}
+
+		// Then, make the smart contract call
+		const resultContract = await handleContractCall(contractInstance.createPackage(req.user.walletAddress, packageID, packageName, price, status));
+		if (!resultContract.success) {
+			throw new Error(resultContract.error);
+		}
+
+		// If everything goes well, commit the transaction
+		await session.commitTransaction();
 		res.status(201).json({ success: true, packageID: packageID });
-	} else {
-		res.status(500).send(result.error);
+	} catch (error) {
+		// If there's an error, abort the transaction and roll back any changes
+		await session.abortTransaction();
+		res.status(500).send(error.message);
+	} finally {
+		session.endSession();
 	}
 };
 
@@ -138,26 +232,42 @@ exports.createPackage = async (req, res) => {
 exports.updatePackage = async (req, res) => {
 	const packageID = req.params.packageID;
 	const { packageName, price, status, packagePicture } = req.body;
+
 	// Validate input
 	if (!packageName || !price || typeof status !== "boolean") {
 		return res.status(400).send("Invalid input data");
 	}
-	const result = await handleContractCall(contractInstance.updatePackage(req.user.walletAddress, packageID, packageName, price, status));
-	let package;
-	if (packagePicture) {
-		package = await Package.findByIdAndUpdate(
-			packageID,
-			{ picture: packagePicture },
-			{
-				new: true,
-				runValidators: true
-			}
-		);
-	}
-	if (result.success && package) {
+
+	const session = await mongoose.startSession();
+	session.startTransaction();
+
+	try {
+		let update = {};
+		if (packagePicture) {
+			update.picture = packagePicture;
+		}
+
+		// First, update the package in MongoDB within the transaction
+		const resultDB = await handleDBCall(Package.findByIdAndUpdate(packageID, update, { new: true, runValidators: true, session }));
+		if (!resultDB.success) {
+			throw new Error(resultDB.error);
+		}
+
+		// Then, make the smart contract call
+		const resultContract = await handleContractCall(contractInstance.updatePackage(req.user.walletAddress, packageID, packageName, price, status));
+		if (!resultContract.success) {
+			throw new Error(resultContract.error);
+		}
+
+		// If everything goes well, commit the transaction
+		await session.commitTransaction();
 		res.status(200).json({ success: true });
-	} else {
-		res.status(500).send(result.error);
+	} catch (error) {
+		// If there's an error, abort the transaction and roll back any changes
+		await session.abortTransaction();
+		res.status(500).send(error.message);
+	} finally {
+		session.endSession();
 	}
 };
 
@@ -167,16 +277,18 @@ exports.updatePackage = async (req, res) => {
 exports.addItemToPackage = async (req, res) => {
 	const packageID = req.params.packageID;
 	const itemID = req.params.itemID;
+
 	// Validate input
 	if (!itemID) {
 		return res.status(400).send("Invalid input data");
 	}
-	// const tx = await contractInstance.addItemToPackage(req.user.walletAddress, itemID, packageID);
-	const result = await handleContractCall(contractInstance.addItemToPackage(req.user.walletAddress, itemID, packageID));
-	if (result.success) {
+
+	const resultContract = await handleContractCall(contractInstance.addItemToPackage(req.user.walletAddress, itemID, packageID));
+
+	if (resultContract.success) {
 		res.status(201).json({ success: true });
 	} else {
-		res.status(500).send(result.error);
+		res.status(500).send(resultContract.error);
 	}
 };
 
@@ -186,15 +298,18 @@ exports.addItemToPackage = async (req, res) => {
 exports.removeItemFromPackage = async (req, res) => {
 	const packageID = req.params.packageID;
 	const itemID = req.params.itemID;
+
 	// Validate input
 	if (!itemID) {
 		return res.status(400).send("Invalid input data");
 	}
-	const result = await handleContractCall(contractInstance.removeItemFromPackage(req.user.walletAddress, itemID, packageID));
-	if (result.success) {
+
+	const resultContract = await handleContractCall(contractInstance.removeItemFromPackage(req.user.walletAddress, itemID, packageID));
+
+	if (resultContract.success) {
 		res.status(201).json({ success: true });
 	} else {
-		res.status(500).send(result.error);
+		res.status(500).send(resultContract.error);
 	}
 };
 
@@ -203,11 +318,11 @@ exports.removeItemFromPackage = async (req, res) => {
 //@access
 exports.pullGacha = async (req, res) => {
 	const packageID = req.params.packageID;
-	const result = await handleContractCall(contractInstance.pullGacha(packageID, req.user.walletAddress));
-	if (result.success) {
-		const transactionReceipt = result.data;
+	const resultContract = await handleContractCall(contractInstance.pullGacha(packageID, req.user.walletAddress));
+	if (resultContract.success) {
+		const transactionReceipt = resultContract.data;
 		res.status(201).json(transactionReceipt);
 	} else {
-		res.status(500).send(result.error);
+		res.status(500).send(resultContract.error);
 	}
 };

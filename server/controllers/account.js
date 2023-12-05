@@ -22,9 +22,13 @@ async function handleContractCall(call) {
 exports.getAllCompany = async (req, res) => {
 	try {
 		const companyUsers = await User.find({ role: "company" });
+		if (!item) {
+			throw new Error("No company found in the database");
+		}
+
 		res.status(200).json(companyUsers);
 	} catch (error) {
-		res.status(500);
+		res.status(500).send(error.message);
 	}
 };
 
@@ -33,11 +37,11 @@ exports.getAllCompany = async (req, res) => {
 //@access	Private
 exports.getCompanyPackages = async (req, res) => {
 	const companyAddress = req.params.companyAddress;
-	const result = await handleContractCall(contractInstance.getCompanyPackages(companyAddress));
-	if (result.success) {
-		res.json(result.data);
+	const resultContract = await handleContractCall(contractInstance.getCompanyPackages(companyAddress));
+	if (resultContract.success) {
+		res.json(resultContract.data);
 	} else {
-		res.status(500).send(result.error);
+		res.status(500).send(resultContract.error);
 	}
 };
 
@@ -45,9 +49,9 @@ exports.getCompanyPackages = async (req, res) => {
 //@route    GET /account
 //@access	Private
 exports.getAccount = async (req, res) => {
-	const result = await handleContractCall(contractInstance.getAccount(req.user.walletAddress));
-	if (result.success) {
-		const data = result.data;
+	const resultContract = await handleContractCall(contractInstance.getAccount(req.user.walletAddress));
+	if (resultContract.success) {
+		const data = resultContract.data;
 		res.json({
 			role: data[0],
 			unredeemedItemIDs: data[1],
@@ -58,7 +62,7 @@ exports.getAccount = async (req, res) => {
 			tokenBalance: data[6].toString()
 		});
 	} else {
-		res.status(500).send(result.error);
+		res.status(500).send(resultContract.error);
 	}
 };
 
@@ -72,16 +76,16 @@ exports.updateTokenBalance = async (req, res) => {
 	if (typeof amount !== "number") {
 		return res.status(400).send("Invalid amount provided");
 	}
-	let result;
+	let resultContract;
 	if (amount > 0) {
-		result = await handleContractCall(contractInstance.increaseAccountToken(req.user.walletAddress, amount));
+		resultContract = await handleContractCall(contractInstance.increaseAccountToken(req.user.walletAddress, amount));
 	} else {
-		result = await handleContractCall(contractInstance.decreaseAccountToken(req.user.walletAddress, -amount));
+		resultContract = await handleContractCall(contractInstance.decreaseAccountToken(req.user.walletAddress, -amount));
 	}
-	if (result.success) {
+	if (resultContract.success) {
 		res.json({ success: true });
 	} else {
-		res.status(500).send(result.error);
+		res.status(500).send(resultContract.error);
 	}
 };
 
@@ -94,10 +98,10 @@ exports.redeemUserItem = async (req, res) => {
 	if (!itemID) {
 		return res.status(400).send("Item ID is required");
 	}
-	const result = await handleContractCall(contractInstance.redeemUserItem(req.user.walletAddress, itemID));
-	if (result.success) {
+	const resultContract = await handleContractCall(contractInstance.redeemUserItem(req.user.walletAddress, itemID));
+	if (resultContract.success) {
 		res.status(201).json({ success: true });
 	} else {
-		res.status(500).send(result.error);
+		res.status(500).send(resultContract.error);
 	}
 };

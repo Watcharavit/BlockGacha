@@ -1,32 +1,70 @@
 const User = require("../models/User");
 const { contractInstance } = require("../config/contractInstance");
+const mongoose = require("mongoose");
+
+// Common function to handle contract calls and transactions
+async function handleContractCall(callFunction) {
+	try {
+		const tx = await callFunction;
+		if (typeof tx !== "function") {
+			return { success: true, data: tx };
+		}
+		const result = await tx.wait();
+		return { success: true, data: result };
+	} catch (error) {
+		console.error("Contract call error:", error.message);
+		return { success: false, error: error.message };
+	}
+}
 
 //@desc     Register user
 //@route    POST /auth/register
 //@access   Public
 exports.register = async (req, res, next) => {
+	const { name, walletAddress, email, password, role } = req.body;
+
+	const session = await mongoose.startSession();
+	session.startTransaction();
+
 	try {
-		const { name, walletAddress, email, password, role } = req.body;
+		// First, create the user in MongoDB within the transaction
+		const user = await User.create(
+			[
+				{
+					name,
+					walletAddress,
+					email,
+					password,
+					role
+				}
+			],
+			{ session: session }
+		);
+
+		let resultContract;
 		if (role == "user") {
-			const tx = await contractInstance.registerAccount(walletAddress, 0);
-			await tx.wait();
+			resultContract = await handleContractCall(contractInstance.registerAccount(walletAddress, 0));
 		} else if (role == "company") {
-			const tx = await contractInstance.registerAccount(walletAddress, 1);
-			await tx.wait();
+			resultContract = await handleContractCall(contractInstance.registerAccount(walletAddress, 1));
 		}
-		const user = await User.create({
-			name,
-			walletAddress,
-			email,
-			password,
-			role
-		});
-		sendTokenResponse(user, 200, res);
-	} catch (err) {
+
+		if (!resultContract.success) {
+			throw new Error(resultContract.error);
+		}
+
+		// If everything goes well, commit the transaction
+		await session.commitTransaction();
+		sendTokenResponse(user[0], 200, res); // Assuming sendTokenResponse sends the response
+	} catch (error) {
+		// If there's an error, abort the transaction and roll back any changes
+		await session.abortTransaction();
 		res.status(400).json({
-			success: false
+			success: false,
+			message: error.message
 		});
-		console.log(err.stack);
+		console.log(error.stack);
+	} finally {
+		session.endSession();
 	}
 };
 

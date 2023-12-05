@@ -21,9 +21,9 @@ async function handleContractCall(call) {
 //@access	Public
 exports.getTrade = async (req, res) => {
 	const tradeID = req.params.tradeID;
-	const result = await handleContractCall(contractInstance.getTrade(tradeID));
-	if (result.success) {
-		const data = result.data;
+	const resultContract = await handleContractCall(contractInstance.getTrade(tradeID));
+	if (resultContract.success) {
+		const data = resultContract.data;
 		res.json({
 			proposeItemID: data[0],
 			requestItemID: data[1],
@@ -32,7 +32,7 @@ exports.getTrade = async (req, res) => {
 			isDone: data[4]
 		});
 	} else {
-		res.status(500).send(result.error);
+		res.status(500).send(resultContract.error);
 	}
 };
 
@@ -47,11 +47,11 @@ exports.proposeTrade = async (req, res) => {
 		return res.status(400).send("Invalid input data");
 	}
 	const tradeID = await incrementCounter("tradeIDCounter");
-	const result = await handleContractCall(contractInstance.proposeTrade(tradeID, req.user.walletAddress, requestTo, proposeItemID, requestItemID));
-	if (result.success) {
+	const resultContract = await handleContractCall(contractInstance.proposeTrade(tradeID, req.user.walletAddress, requestTo, proposeItemID, requestItemID));
+	if (resultContract.success) {
 		res.status(201).json({ success: true, tradeID: tradeID });
 	} else {
-		res.status(500).send(result.error);
+		res.status(500).send(resultContract.error);
 	}
 };
 
@@ -60,10 +60,10 @@ exports.proposeTrade = async (req, res) => {
 //@access	Private
 exports.acceptPropose = async (req, res) => {
 	const tradeID = req.params.tradeID;
-	const result = await handleContractCall(contractInstance.acceptPropose(req.user.walletAddress, tradeID));
-	if (result.success) {
+	const resultContract = await handleContractCall(contractInstance.acceptPropose(req.user.walletAddress, tradeID));
+	if (resultContract.success) {
 		res.status(201).json({ success: true });
 	} else {
-		res.status(500).send(result.error);
+		res.status(500).send(resultContract.error);
 	}
 };
