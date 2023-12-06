@@ -73,14 +73,17 @@
 
 If you prefer to use Docker instead of running the project locally:
 
-1. **Pull the Docker Image**:
+1. **Deploying Contracts** : (For Advanced Topics in Computer Engineering V Lecture deploy it using Remix)
+
+    - Download folder contracts and deploy contract **State** (use solidity compiler version 0.8.15).
+
+2. **Pull the Docker Image**:
 
     ```bash
-    # Command to pull the image
     docker pull watcharavit/block-gacha:1.0
     ```
 
-2. **Run the Docker Container**:
+3. **Run the Docker Container**:
 
     - Map the desired port and set the required environment variables:
 
