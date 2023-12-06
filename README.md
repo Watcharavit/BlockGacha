@@ -77,6 +77,7 @@ If you prefer to use Docker instead of running the project locally:
 
     ```bash
     # Command to pull the image
+    docker pull watcharavit/block-gacha:1.0
     ```
 
 2. **Run the Docker Container**:
@@ -90,11 +91,9 @@ If you prefer to use Docker instead of running the project locally:
         -e API_URL=your_network_RPC_URL \
         -e PRIVATE_KEY=your_private_key \
         -e CONTRACT_ADDRESS=deployed_contract_address \
-        your_docker_image_name
+        watcharavit/block-gacha:1.0
         ```
 
-    - Replace `<your_port>` with the port you want to use, and `your_docker_image_name` with the name of your Docker image.
-
-    - Set other environment variables as required.
+    - Replace `<your_port>` with the port you want to use.
 
 This guide should help you get the project up and running smoothly, whether you choose to run it locally or in a Docker container.
